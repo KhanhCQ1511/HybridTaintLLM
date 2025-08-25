@@ -52,10 +52,14 @@ For the model to work, you need to have the API_KEY of the Gemini_2.5_Flash mode
 ## ⚡ Quickstart
 Make sure you have followed all of the environment setup instructions before proceeding!
 
-To quickly try HybridTaintLLM on the example `CWE_022`, run the following commands:
+To quickly try HybridTaintLLM on the example `CWE_demo`, run the following commands:
 
 ```shell
-python3 script/hybrid_taint_llm.py --cwe 22
+# with no using explicit cache in tagging
+python3 script/run_all_thing.py --cwe demo --model Gemini-2.5_flash --nocache 
+
+# with using explicit cache in tagging, cache is available with Gemini model
+python3 script/run_all_thing.py --cwe demo --model Gemini-2.5_flash --nocache
 ```
 This will build the project, generate the CodeQL database, and analyze it for CWE-022 vulnerabilities using the specified LLM (Gemini_2.5_Flash). The output of these three steps will be stored under `SAST_Module/ql_results`, `DAST_Module/galette_result`, and `LLM/result` respectively.
 
@@ -70,8 +74,11 @@ python3 SAST_Module/script/codeql_run_query.py --cwe 22
 # Generate prompt for tagging
 python3 DAST_Module/script/galette_gen_user_prompt.py --cwe 22
 
-# Tagging with LLM
-python3 DAST_Module/script/galette_LLM_instrument.py --cwe 22
+## Tagging with LLM no cache
+python3 DAST_Module/script/galette_LLM_instrument_no_cache.py --cwe 22 --model Gemini-2.5_flash
+
+## Tagging with LLM with cache
+python3 DAST_Module/script/galette_LLM_instrument_cache.py --cwe 22 --model Gemini-2.5_flash
 
 # Overwrite output LLM to Dataset
 python3 DAST_Module/script/galette_tagging_overwrite.py --cwe 22
@@ -83,8 +90,9 @@ python3 DAST_Module/script/galette_propagation.py --cwe 22
 python3 LLM/script/generate_user_prompt.py --cwe 22
 
 # Trigger alerts with LLM
-python3 LLM/script/LLM_trigger_alert.py --cwe 22
+python3 LLM/script/LLM_trigger_alert.py --cwe 22 --model Gemini-2.5_flash
 ```
+Our models besides `Gemini-2.5-flash` can also still run with `ollama-deepseek-8b-q4`, `ollama-deepseek-1.5b-q4`, `ollama-qwen-1.7b`, `ollama-qwen-8b`, `ollama-gpt-oss`
 
 ## 🤝 Our Team
 HybridTaintLLM is a product of the Information Assurance Capstone Project of FPT University. Please contact us if you have any questions about HybridTaintLLM.
