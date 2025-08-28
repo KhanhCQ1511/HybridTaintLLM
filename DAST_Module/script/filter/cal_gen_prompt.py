@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import os
 import sys
 import argparse
@@ -38,7 +35,7 @@ DEFAULT_USER_PROMPT_ROOT = os.path.join(
 )
 
 try:
-    import directory  # type: ignore
+    import directory
     FILTER_ROOT = getattr(directory, 'GALETTE_FILTER', DEFAULT_FILTER_ROOT)
     USER_PROMPT_ROOT = getattr(directory, 'GALETTE_USER_PROMPT_RS', DEFAULT_USER_PROMPT_ROOT)
 except Exception:
@@ -285,7 +282,7 @@ def main():
     args = parser.parse_args()
 
     metrics_csv = build_and_save_prompts(args.cwe)
-    print(f"[✓] Done. Metrics CSV: {metrics_csv}")
+    print(f"[!] Done. Metrics CSV: {metrics_csv}")
 
 if __name__ == '__main__':
     main()

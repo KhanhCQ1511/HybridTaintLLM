@@ -4,9 +4,10 @@ import csv
 import time
 import json
 import argparse
+import re
 from datetime import datetime
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from directory import LLM_OUTPUT_DIR
 from directory import LLM_OUTPUT_USER_DIR
 from LLM.src.prompt import PROMPT_SYSTEM_TASK
@@ -42,42 +43,50 @@ def _map_usage(u):
     except: t = None
     return p, o, t
 
+_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
+
 def _strip_fences(s):
     if not isinstance(s, str):
         return s
-    s = s.strip()
-    if s.startswith("```"):
-        nl = s.find("\n")
-        if nl != -1:
-            s = s[nl+1:]
-        if s.endswith("```"):
-            s = s[:-3]
-    return s.strip()
+    return _FENCE_RE.sub("", s.strip())
+
+def _normalize_quotes(s: str) -> str:
+    return (s.replace("\u201c", '"').replace("\u201d", '"')
+             .replace("\u2018", "'").replace("\u2019", "'"))
+
+def _clean_trailing_commas(s: str) -> str:
+    return re.sub(r",(\s*[}\]])", r"\1", s)
 
 def _extract_json_string(text):
     if not isinstance(text, str):
         return None
-    cand = text.strip()
+    s = _strip_fences(text)
+    s = _normalize_quotes(s)
     try:
-        json.loads(cand)
-        return cand
+        json.loads(s)
+        return s
     except Exception:
         pass
-    cand = _strip_fences(text)
-    try:
-        json.loads(cand)
-        return cand
-    except Exception:
-        pass
-    first = cand.find("{")
-    last = cand.rfind("}")
-    if first != -1 and last != -1 and last > first:
-        maybe = cand[first:last+1]
+    first_obj, last_obj = s.find("{"), s.rfind("}")
+    first_arr, last_arr = s.find("["), s.rfind("]")
+    ranges = []
+    if first_obj != -1 and last_obj != -1 and last_obj > first_obj:
+        ranges.append((first_obj, last_obj+1))
+    if first_arr != -1 and last_arr != -1 and last_arr > first_arr:
+        ranges.append((first_arr, last_arr+1))
+    ranges.sort(key=lambda x: (s[x[0]] != "{", x[0]))
+    for i, j in ranges:
+        core = _clean_trailing_commas(s[i:j])
         try:
-            json.loads(maybe)
-            return maybe
+            json.loads(core)
+            return core
         except Exception:
-            pass
+            try:
+                import json5
+                obj = json5.loads(core)
+                return json.dumps(obj, ensure_ascii=False)
+            except Exception:
+                continue
     return None
 
 def _run_model(model, system_prompt, user_prompt, model_name_hint):
@@ -97,7 +106,7 @@ def _run_model(model, system_prompt, user_prompt, model_name_hint):
         res = model.predict(
             combined_prompt=f"{system_prompt}\n\n{user_prompt}",
             return_usage=True,
-            config_override=None,
+            config_override={"response_mime_type": "application/json"},
             contents_override=None,
         )
         if isinstance(res, dict):
@@ -114,7 +123,6 @@ def _run_model(model, system_prompt, user_prompt, model_name_hint):
 def run_prompts_for_cwe(cwe_id, model_name):
     cwe = str(cwe_id).strip().lower()
     cwe_dirname = "cwe-demo" if cwe == "demo" else f"cwe-{cwe.zfill(3)}"
-
     user_prompt_dir = os.path.join(LLM_OUTPUT_USER_DIR, cwe_dirname, "user_prompt_rs")
     output_dir = os.path.join(LLM_OUTPUT_DIR, cwe_dirname)
     _ensure_dir(output_dir)
@@ -122,40 +130,31 @@ def run_prompts_for_cwe(cwe_id, model_name):
     _ensure_dir(raw_fail_dir)
     metrics_csv = os.path.join(output_dir, "metrics.csv")
     _ensure_csv(metrics_csv)
-
     if not os.path.isdir(user_prompt_dir):
         print(f"[!] Can't find user prompt folder: {user_prompt_dir}")
         return
-
     model = create_model(model_name)
     files = sorted([f for f in os.listdir(user_prompt_dir) if f.lower().endswith(".txt")])
     print(f"[!] Found {len(files)} prompt files in: {user_prompt_dir}")
-
     for fname in files:
         fpath = os.path.join(user_prompt_dir, fname)
         print(f"\n[⚙] Processing: {fname}")
-
         with open(fpath, "r", encoding="utf-8") as f:
             user_prompt = f.read()
-
         if not user_prompt.strip():
             print("[!] Skipped empty prompt")
             continue
-
         start_iso = datetime.now().isoformat(timespec="seconds")
         t0 = time.perf_counter()
         backend_label = getattr(model, "model", None) or getattr(model, "name", None) or model_name
         p_tok = o_tok = t_tok = None
-
         try:
             text, backend, usage = _run_model(model, PROMPT_SYSTEM_TASK, user_prompt, model_name)
             backend_label = backend or backend_label
             p_tok, o_tok, t_tok = _map_usage(usage)
-
             json_str = _extract_json_string(text)
             end_iso = datetime.now().isoformat(timespec="seconds")
             elapsed_ms = int((time.perf_counter() - t0) * 1000)
-
             if json_str is None:
                 with open(metrics_csv, "a", newline="", encoding="utf-8") as mf:
                     csv.writer(mf).writerow([
@@ -167,33 +166,32 @@ def run_prompts_for_cwe(cwe_id, model_name):
                     rf.write(text if isinstance(text, str) else str(text))
                 print(f"[!] Failed JSON parse, saved raw to: {raw_fail_path}")
                 continue
-
+            try:
+                obj = json.loads(json_str)
+            except Exception:
+                import json5
+                obj = json5.loads(json_str)
+            json_str = json.dumps(obj, ensure_ascii=False, indent=2)
             out_path = os.path.join(output_dir, fname.replace(".txt", ".json"))
             with open(out_path, "w", encoding="utf-8") as outf:
                 outf.write(json_str)
-
             with open(metrics_csv, "a", newline="", encoding="utf-8") as mf:
                 csv.writer(mf).writerow([
                     fname, start_iso, end_iso, elapsed_ms,
                     p_tok, o_tok, t_tok, backend_label
                 ])
-
             print(f"[!] Saved JSON: {out_path} ({elapsed_ms} ms)")
-
         except Exception as e:
             end_iso = datetime.now().isoformat(timespec="seconds")
             elapsed_ms = int((time.perf_counter() - t0) * 1000)
-
             with open(metrics_csv, "a", newline="", encoding="utf-8") as mf:
                 csv.writer(mf).writerow([
                     fname, start_iso, end_iso, elapsed_ms,
                     p_tok, o_tok, t_tok, backend_label
                 ])
-
             raw_fail_path = os.path.join(raw_fail_dir, fname.replace(".txt", ".raw.txt"))
             with open(raw_fail_path, "w", encoding="utf-8") as failf:
                 failf.write(user_prompt)
-
             print(f"[!] Failed: {e}")
 
 if __name__ == "__main__":

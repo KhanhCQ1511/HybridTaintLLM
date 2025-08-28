@@ -5,11 +5,9 @@ from typing import Callable, List, Optional
 
 
 def _load_keys_from_llm_secret() -> List[str]:
-    """Load keys from LLM_secret.py (GEMINI_KEY, GEMINI_KEY_1..10)."""
     keys: List[str] = []
     try:
-        import LLM_secret  # type: ignore
-        # primary
+        import LLM_secret
         if hasattr(LLM_secret, "GEMINI_KEY"):
             v = getattr(LLM_secret, "GEMINI_KEY")
             if isinstance(v, str) and v.strip():
@@ -24,7 +22,6 @@ def _load_keys_from_llm_secret() -> List[str]:
     except Exception:
         pass
 
-    # de-duplicate, preserve order
     seen = set()
     uniq: List[str] = []
     for k in keys:
@@ -33,8 +30,6 @@ def _load_keys_from_llm_secret() -> List[str]:
             uniq.append(k)
     return uniq
 
-
-# Rotate-worthy error hints (keep minimal & generic)
 _ROTATE_HINTS = [
     r"\b401\b", r"\b403\b", r"\b429\b", r"\b5\d{2}\b",
     r"unauthorized", r"permission denied", r"forbidden",
@@ -43,21 +38,17 @@ _ROTATE_HINTS = [
     r"resource exhausted",
 ]
 
-# Do-NOT-rotate (client error) hints
 _NO_ROTATE_HINTS = [
     r"\b400\b", r"invalid argument", r"bad request",
     r"response_schema", r"schema", r"malformed", r"unsupported",
 ]
 
-# High-priority: force-rotate when API key itself is invalid/expired
-# (Ưu tiên cao hơn _NO_ROTATE_HINTS để xử lý các lỗi 400 INVALID_ARGUMENT do key hết hạn)
 KEY_INVALID_HINTS = [
     r"api[_\s-]?key[_\s-]?invalid",
     r"api[_\s-]?key[_\s-]?expired",
     r"\bapi_key_invalid\b",
     r"\bkey\b.*\b(expired|revoked)\b",
 ]
-
 
 class APIKeyRotator:
     def __init__(
@@ -98,7 +89,6 @@ class APIKeyRotator:
             print(f"[rotate_API_key] -> switched to key {self.i+1}/{len(self.keys)}")
         return self.current_key
 
-    # ---- error classification (generic, no SDK imports) ----
     def _text(self, exc: BaseException) -> str:
         for attr in ("message", "detail", "args"):
             try:
@@ -136,27 +126,21 @@ class APIKeyRotator:
         msg = self._text(exc).lower()
         code = self._status_code(exc)
 
-        # (A) Key invalid/expired: ALWAYS rotate (even if it's a 400 INVALID_ARGUMENT)
         if any(re.search(p, msg) for p in KEY_INVALID_HINTS):
             return True
 
-        # (B) Obvious auth/rate/server codes: rotate
         if code in (401, 403, 429) or (isinstance(code, int) and 500 <= code < 600):
             return True
 
-        # (C) Non-rotate client errors (schema/bad request...) — keep existing behavior
         if any(re.search(p, msg) for p in _NO_ROTATE_HINTS):
             return False
 
-        # (D) Generic rotate-worthy hints (quota/rate/billing...)
         if any(re.search(p, msg) for p in _ROTATE_HINTS):
             return True
 
         return False
 
-    # ---- runner ----
     def run(self, fn: Callable, *args, **kwargs):
-        """Call `fn(api_key, *args, **kwargs)` with rotation & simple backoff."""
         attempts_left = max(1, self.total_attempts)
         last_err: Optional[BaseException] = None
 

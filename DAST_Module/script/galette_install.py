@@ -2,8 +2,6 @@ import os
 import subprocess as sb
 import sys
 import shutil
-
-# Load ROOT_DIR and paths from directory.py
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 import directory
 
@@ -20,7 +18,6 @@ jdk_archive_name = f"OpenJDK17U-jdk_x64_linux_hotspot_{jdk_version}.tar.gz"
 jdk_download_url = "https://eclipse.c3sl.ufpr.br/temurin-compliance/temurin/17/jdk-17.0.11+9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.11_9.tar.gz"
 jdk_install_path = os.path.join(directory.DAST_DIR, "jdk-17.0.11")
 
-# Clone Galette if not already cloned
 if not os.path.exists(galette_path):
     print(f"[!] Cloning Galette into: {galette_path}")
     try:
@@ -31,7 +28,7 @@ if not os.path.exists(galette_path):
 else:
     print("[!] Galette already exists. Skipping clone.")
 
-# Build Galette using Maven
+
 print("[!] Building Galette with Maven...")
 try:
     sb.run(["mvn", "clean", "package"], cwd=galette_path, check=True)
@@ -40,7 +37,6 @@ except sb.CalledProcessError:
     print("[!] Failed to build Galette.")
     sys.exit(1)
 
-# Install Galette Agent into local Maven repo
 print("[!] Installing Galette agent into local Maven repository...")
 try:
     sb.run([
@@ -56,18 +52,13 @@ except sb.CalledProcessError:
     print("[!] Failed to install Galette agent.")
     sys.exit(1)
 
-# Download and extract specific JDK if not present
 if not os.path.exists(jdk_install_path):
     print(f"[!] Downloading JDK {jdk_version} from Adoptium...")
     try:
         sb.run(["wget", "-O", jdk_archive_name, jdk_download_url], check=True)
         sb.run(["tar", "-xzf", jdk_archive_name, "-C", directory.DAST_DIR], check=True)
-
-        # Find extracted directory (name may include +9)
         extracted_dir = [d for d in os.listdir(directory.DAST_DIR) if d.startswith("jdk-17.0.11")][0]
         extracted_path = os.path.join(directory.DAST_DIR, extracted_dir)
-
-        # Rename to a clean directory name for consistency
         shutil.move(extracted_path, jdk_install_path)
         print(f"[!] JDK extracted to {jdk_install_path}")
     except sb.CalledProcessError:
@@ -79,7 +70,6 @@ else:
 jdk_path = jdk_install_path
 print(f"[!] Using downloaded JDK at: {jdk_path}")
 
-# Set JAVA_HOME and MAVEN_OPTS
 os.environ["JAVA_HOME"] = jdk_path
 os.environ["MAVEN_OPTS"] = (
     f"-Xbootclasspath/a:{agent_jar_path} "
@@ -88,20 +78,19 @@ os.environ["MAVEN_OPTS"] = (
 print(f"[!] Set JAVA_HOME = {jdk_path}")
 print(f"[!] Set MAVEN_OPTS with Galette agent")
 
-# Instrument JDK using Galette Instrument JAR
 print("[!] Instrumenting JDK 17 using Galette Instrument JAR...")
 if not os.path.exists(instrument_jar_path):
     print(f"[!] Galette Instrument JAR not found at: {instrument_jar_path}")
     sys.exit(1)
-# Check JDK path exists
+
 if not os.path.exists(jdk_path):
     print(f"[!] JDK path not found: {jdk_path}")
     sys.exit(1)
-# Delete destination if exists
+
 if os.path.exists(instrumented_jdk_path):
     print(f"[!] Output directory already exists. Deleting: {instrumented_jdk_path}")
     shutil.rmtree(instrumented_jdk_path)
-# Run Galette Instrument
+
 try:
     sb.run([
         os.path.join(jdk_path, "bin", "java"),

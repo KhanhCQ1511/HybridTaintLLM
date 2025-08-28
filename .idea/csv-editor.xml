@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/DAST_Module/filter/result/cwe-089/prompt_token_usage.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/DAST_Module/gallet_result/cwe-022/CWE-022_Merged.csv">
           <value>
             <Attribute>
@@ -32,6 +39,20 @@
           </value>
         </entry>
         <entry key="/DAST_Module/script/instrument/galette_instrument_prompt_results/LLM_prompt_rs/cwe-022_no_cache_01/metrics.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/SAST_Module/ql_results/cwe-022/TaintedPath.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/eval/result/cwe-078/Token_LLM_CWE-078.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

@@ -16,7 +16,6 @@ def download_and_extract_codeql():
     response.raise_for_status()
     release_data = response.json()
 
-    # Package for Linux
     linux_asset = next((a for a in release_data.get("assets", []) if "linux64.zip" in a["name"]), None)
     if not linux_asset:
         raise Exception("[!] Can't find codeql-linux64.zip in latest release.")

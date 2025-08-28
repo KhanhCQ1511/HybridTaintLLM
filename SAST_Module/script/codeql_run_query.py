@@ -14,7 +14,6 @@ DB_PATH = Path(directory.CODEQL_DB_PATH) / "BenchJavaDB"
 RESULT_ROOT = Path(directory.ROOT_DIR) / "SAST_Module" / "ql_results"
 CODEQL = Path(directory.CODEQL_DIR) / "codeql"
 
-# Chạy truy vấn CodeQL
 def run_query(query_path: Path, db_path: Path, result_csv_path: Path):
     result_csv_path.parent.mkdir(parents=True, exist_ok=True)
     bqrs_file = result_csv_path.with_suffix(".bqrs")
@@ -41,7 +40,6 @@ def run_query(query_path: Path, db_path: Path, result_csv_path: Path):
     print(f"[!] Query time: {duration:.2f} seconds\n")
     return duration
 
-# Gộp file CSV
 def merge_csv_files(csv_paths, output_path):
     header_written = False
     with open(output_path, 'w', newline='') as fout:
@@ -60,7 +58,6 @@ def merge_csv_files(csv_paths, output_path):
                 writer.writerows(data)
     print(f"[!] Combined CSV written to {output_path}")
 
-# Giữ lại 5 dòng đầu tiên
 def keep_only_top_rows(csv_path: Path, num_rows: int = 5):
     with open(csv_path, "r") as fin:
         rows = list(csv.reader(fin))
@@ -73,7 +70,6 @@ def keep_only_top_rows(csv_path: Path, num_rows: int = 5):
         writer.writerows(data)
     print(f"[!] Trimmed to first {num_rows} rows: {csv_path}")
 
-# Chạy truy vấn theo thư mục CWE
 def run_queries_for_cwe(query_folder: str, result_folder: str, is_demo: bool = False):
     query_dir = QUERY_ROOT / query_folder
     result_dir = RESULT_ROOT / result_folder
@@ -113,7 +109,6 @@ def run_queries_for_cwe(query_folder: str, result_folder: str, is_demo: bool = F
             if is_demo:
                 keep_only_top_rows(result_csv, 5)
 
-# MAIN
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run CodeQL queries for CWE")
     parser.add_argument("-f", "--filter", help="Specify CWE folder (e.g., cwe-022 or 'demo')")

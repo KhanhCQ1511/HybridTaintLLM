@@ -1,8 +1,7 @@
 from typing import Optional, Tuple
 
 def _client_for_key(api_key: Optional[str]):
-    """Return a genai.Client configured with api_key (or default creds if None)."""
-    from google import genai  # local import to avoid hard dependency on import
+    from google import genai
     return genai.Client(api_key=api_key) if api_key else genai.Client()
 
 def _safe_text(resp) -> str:
@@ -23,7 +22,6 @@ def _safe_text(resp) -> str:
         return ""
 
 def _usage_counts(resp) -> Tuple[Optional[int], Optional[int], Optional[int]]:
-    """Extract (prompt, output, total) token counters from response (best-effort)."""
     u = getattr(resp, "usage_metadata", None)
     def pick(keys):
         if u is None:
@@ -48,7 +46,6 @@ def _usage_counts(resp) -> Tuple[Optional[int], Optional[int], Optional[int]]:
             int(total) if total is not None else None)
 
 def _finish_reason(resp) -> str:
-    """Return finish_reason as friendly string; handles numeric/enums."""
     try:
         cands = getattr(resp, "candidates", None) or []
         if not cands:
@@ -74,9 +71,8 @@ def _finish_reason(resp) -> str:
         return ""
 
 def _safety_block_none():
-    """Return a list of SafetySetting with BLOCK_NONE for common categories."""
     try:
-        from google.genai import types  # local import
+        from google.genai import types
     except Exception:
         return []
     desired = [

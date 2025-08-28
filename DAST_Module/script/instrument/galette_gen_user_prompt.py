@@ -18,7 +18,6 @@ from DAST_Module.src.prompt_instrument import (
     CWE_INFO,
 )
 
-# Read .csv
 def read_input_file(filepath):
     if filepath.endswith(".csv"):
         df = pd.read_csv(filepath)
@@ -28,7 +27,6 @@ def read_input_file(filepath):
         raise ValueError(f"! File not found: {filepath}")
     return df, os.path.basename(filepath)
 
-# Find Java Class
 def class_name_to_path(full_class_name: str) -> str:
     file_name = full_class_name.split('.')[-1] + ".java"
     for root, _, files in os.walk(PROJECT_SOURCE_CODE_JAVA_DIR):
@@ -36,13 +34,11 @@ def class_name_to_path(full_class_name: str) -> str:
             return os.path.join(root, file_name)
     return None
 
-# Extract method code
 def extract_java_method(code: str, method_name: str) -> str:
     pattern = rf"(?:@[^\n]+\n)?(public|protected|private)[\s\S]+?{method_name}\s*\(.*?\)\s*(?:throws [\w.,\s]+)?\{{[\s\S]*?\n\}}"
     match = re.search(pattern, code)
     return match.group(0) if match else None
 
-# fallback get snippet
 def extract_code_snippet_near_line(code: str, line_number: int, context: int = 10) -> str:
     lines = code.splitlines()
     start = max(0, line_number - context - 1)
@@ -52,7 +48,6 @@ def extract_code_snippet_near_line(code: str, line_number: int, context: int = 1
         return "// [No snippet found]"
     return "// [Method not found by regex — showing snippet]\n" + snippet
 
-# package & import
 def extract_package_and_imports(code: str) -> str:
     lines = code.splitlines()
     package_line = ""
@@ -75,7 +70,6 @@ def extract_package_and_imports(code: str) -> str:
         return "// [No package/import found]"
     return "\n".join(result)
 
-# Gen prompt
 def generate_user_tagging_prompts(cwe_id: str):
     is_demo = cwe_id.strip().lower() == "demo"
     actual_cwe_id = "022" if is_demo else cwe_id.strip().zfill(3)
@@ -124,7 +118,6 @@ def generate_user_tagging_prompts(cwe_id: str):
                 print(f"[!] Can't find file java for line {idx}: {source_class}, {sink_class}")
                 continue
 
-            # Source file
             java_code_source = ""
             package_import_source = "// [No package/import found]"
             if source_path and os.path.exists(source_path):
@@ -132,7 +125,6 @@ def generate_user_tagging_prompts(cwe_id: str):
                     java_code_source = f.read()
                     package_import_source = extract_package_and_imports(java_code_source)
 
-            # Sink file
             java_code_sink = ""
             package_import_sink = "// [No package/import found]"
             if sink_path and os.path.exists(sink_path):
@@ -140,7 +132,6 @@ def generate_user_tagging_prompts(cwe_id: str):
                     java_code_sink = f.read()
                     package_import_sink = extract_package_and_imports(java_code_sink)
 
-            # Extract method source
             source_method_code = extract_java_method(java_code_source, source_method)
             if not source_method_code:
                 try:
@@ -150,7 +141,6 @@ def generate_user_tagging_prompts(cwe_id: str):
                 source_method_code = extract_code_snippet_near_line(java_code_source, line_num)
             source_method_code = str(source_method_code)
 
-            # Extract method sink
             sink_method_code = extract_java_method(java_code_sink, sink_method)
             if not sink_method_code:
                 try:
@@ -163,7 +153,6 @@ def generate_user_tagging_prompts(cwe_id: str):
             file_name_source = os.path.basename(source_path) if source_path else "UnknownSource.java"
             file_name_sink = os.path.basename(sink_path) if sink_path else "UnknownSink.java"
 
-            # Prompt source
             prompt_source = PROMPT_USER_TAGGING_SOURCE.format(
                 source_class=source_class,
                 source_method=source_method,
@@ -174,7 +163,6 @@ def generate_user_tagging_prompts(cwe_id: str):
                 package_import=package_import_source
             )
 
-            # Prompt sink
             prompt_sink = PROMPT_USER_TAGGING_SINK.format(
                 sink_class=sink_class,
                 sink_method=sink_method,
@@ -186,21 +174,18 @@ def generate_user_tagging_prompts(cwe_id: str):
                 package_import=package_import_sink
             )
 
-            # Combine
             prompt_combined = PROMPT_USER_TAGGING_COMBINED.format(
                 user_tagging_source=prompt_source,
                 user_tagging_sink=prompt_sink,
             )
 
-            # Write output
             out_path = os.path.join(output_dir, file_name_source.replace(".java", f"_user_prompt_{idx}.txt"))
             with open(out_path, "w", encoding="utf-8") as out:
                 out.write(prompt_combined)
             total += 1
 
-    print(f"[✔] Total {total} prompt(s) written in: {output_dir}")
+    print(f"[!] Total {total} prompt(s) written in: {output_dir}")
 
-# Entry point
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prompt tagging from CodeQL Result")
     parser.add_argument("--cwe", required=True, help="CWE ID (ex: 022, 078, 089, or 'demo')")
