@@ -4,7 +4,6 @@
 
 HybridTaintLLM is a framework that combines static analysis, dynamic analysis, and LLM to detect security vulnerabilities based on taint flow analysis. HybridTaintLLM uses LLM to support tagging for the dynamic analysis module to determine whether the alerts from static analysis are correct or not. At a high level, Hybird takes the OWASP project and CWEs (vulnerability classes, such as traversal vulnerabilities or CWE-22) as input, statically analyzes the project, derives a set of potential vulnerabilities (CWE types) in the project, feeds it into dynamic analysis to support alert identification, and then outputs results, eliminating false alerts.
 
-![img.png](docs/asset/img.png)
 
 ## 🚀 Set Up
 ### Native (Mac/ Linux)
@@ -66,31 +65,31 @@ This will build the project, generate the CodeQL database, and analyze it for CW
 ## 💫 Handstart 
 Verify that all setup steps have been completed prior to proceeding.
 
-Example The instruction will be run with `CWE_022`, run the following commands:
+Example The instruction will be run with `CWE_demo`, run the following commands:
 ```shell
 # Query the database
-python3 SAST_Module/script/codeql_run_query.py --cwe 22
+python3 SAST_Module/script/codeql_run_query.py --cwe demo
 
 # Generate prompt for tagging
-python3 DAST_Module/script/galette_gen_user_prompt.py --cwe 22
+python3 DAST_Module/script/galette_gen_user_prompt.py --cwe demo
 
 ## Tagging with LLM no cache
-python3 DAST_Module/script/galette_LLM_instrument_no_cache.py --cwe 22 --model Gemini-2.5_flash
+python3 DAST_Module/script/galette_LLM_instrument_no_cache.py --cwe demo --model Gemini-2.5_flash
 
 ## Tagging with LLM with cache
-python3 DAST_Module/script/galette_LLM_instrument_cache.py --cwe 22 --model Gemini-2.5_flash
+python3 DAST_Module/script/galette_LLM_instrument_cache.py --cwe demo --model Gemini-2.5_flash
 
 # Overwrite output LLM to Dataset
-python3 DAST_Module/script/galette_tagging_overwrite.py --cwe 22
+python3 DAST_Module/script/galette_tagging_overwrite.py --cwe demo
 
 # Propagation tags
-python3 DAST_Module/script/galette_propagation.py --cwe 22
+python3 DAST_Module/script/galette_propagation.py --cwe demo
 
 # Generate prompt for trigger alerts
-python3 LLM/script/generate_user_prompt.py --cwe 22
+python3 LLM/script/generate_user_prompt.py --cwe demo
 
 # Trigger alerts with LLM
-python3 LLM/script/LLM_trigger_alert.py --cwe 22 --model Gemini-2.5_flash
+python3 LLM/script/LLM_trigger_alert.py --cwe demo --model Gemini-2.5_flash
 ```
 Our models besides `Gemini-2.5-flash` can also still run with `ollama-deepseek-8b-q4`, `ollama-deepseek-1.5b-q4`, `ollama-qwen-1.7b`, `ollama-qwen-8b`, `ollama-gpt-oss`
 
